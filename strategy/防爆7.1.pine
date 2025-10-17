@@ -1,0 +1,182 @@
+//@version=6
+strategy("小币种防爆v7.1 - gaiban", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=10, pyramiding=10)
+
+// === 回测时间区间（UI 可选） ===
+startTimeInput = input.time(timestamp("2024-01-01 00:00 +0000"), title="开始时间")
+endTimeInput   = input.time(timestamp("2024-03-01 00:00 +0000"),   title="结束时间")
+inTestPeriod   = (time >= startTimeInput) and (time <= endTimeInput)
+
+// === 定义 SMMA 函数 ===
+smma(src, length) =>
+    smaVal = ta.sma(src, length)
+    var float _smma = na
+    _smma := na(_smma[1]) ? smaVal : (_smma[1] * (length - 1) + src) / length
+    _smma
+
+// === 用户参数 ===
+maxAdd            = input.int(3,    "最大加仓次数")
+pc_open           = input.float(3,  "开仓阈值（%）")         / 100
+pc_exit           = input.float(3,  "止盈幅度（%）")         / 100
+trailingPct       = input.float(0.2,"移动止盈幅度（%）", step=0.01) / 100
+
+// === 开关：启用平滑 SMMA ===
+useSmoothSMMA     = input.bool(true, "启用平滑 SMMA")
+
+// === 开仓 SMMA 反转过滤 ===
+useEmaOpenFilter  = input.bool(false, "启用 SMMA 开仓反转过滤")
+emaOpenLen        = input.int(20,    "开仓 SMMA 周期长度")
+emaOpenSource     = input.string("收盘价", "SMMA 滤波数据源", options=["实时数据","开盘价","收盘价"])
+srcOpen           = emaOpenSource == "开盘价" ? open : emaOpenSource == "实时数据" ? hl2 : close
+rawEmaOpen        = smma(srcOpen, emaOpenLen)
+emaOpen           = useSmoothSMMA ? rawEmaOpen : srcOpen
+emaOpenSlope      = emaOpen - emaOpen[1]
+
+// === 避免在 SMMA 最低点开仓 ===
+useAvoidLowest    = input.bool(false, "避免在 SMMA 最低点开仓")
+avoidBars         = input.int(10,    "避免判断的 K 线数")
+emaLowest         = ta.lowest(emaOpen, avoidBars)
+
+// === 新增：SMMA200 趋势过滤 ===
+useSMMA200Filter  = input.bool(false, "启用 SMMA200 趋势过滤")
+smma200Len        = input.int(200,  "SMMA200 周期长度")
+rawSmma200        = smma(close, smma200Len)
+smma200Slope      = rawSmma200 - rawSmma200[1]
+
+// === 平仓 SMMA 反转过滤 ===
+useEmaCloseFilter = input.bool(true,  "启用 SMMA 平仓反转过滤")
+emaCloseLen       = input.int(20,    "平仓 SMMA 周期长度")
+emaCloseSource    = input.string("收盘价", "SMMA 平仓数据源", options=["实时数据","开盘价","收盘价"])
+srcClose          = emaCloseSource == "开盘价" ? open : emaCloseSource == "实时数据" ? hl2 : close
+rawEmaClose       = smma(srcClose, emaCloseLen)
+emaClose          = useSmoothSMMA ? rawEmaClose : srcClose
+emaCloseSlope     = emaClose - emaClose[1]
+emaCloseReversal  = emaCloseSlope > 0
+
+// === 记录涨幅信号 ===
+var bool thresholdMet = false
+
+// === 初次开仓百分比（不计算具体数量） ===
+initialMarginPct  = input.float(10.0, "初次开仓百分比（%）", step=0.1) / 100
+dcaAddPct         = input.float(3.0, "DCA 加仓触发涨幅（%）", step=0.1) / 100
+
+// === 加仓倍数控制参数 ===
+addMult           = input.float(1.0, "加仓数量倍数", step=0.1)
+multStep          = input.float(0.0, "倍数调整步进", step=0.1)
+
+// === 平仓指标开关 ===
+useRSI            = input.bool(true,  "启用 RSI 平仓")
+rsiLen            = input.int(14,    "RSI 周期")
+rsiOversold       = input.int(30,    "RSI 超卖阈值")
+useMACD           = input.bool(true,  "启用 MACD 平仓")
+useStoch          = input.bool(true,  "启用 Stoch 平仓")
+
+// === 状态变量 ===
+var float lastAddPrice     = na
+var int   addCount         = 0
+var bool  inTrade          = false
+var bool  trailingActive   = false
+var float trailLowestPrice = na
+var float totalQty         = 0.0
+var float totalCost        = 0.0
+var float firstQty         = na
+
+// === 开仓阈值信号 ===
+priceChange = (close - close[1]) / close[1]
+baseOpenCond = priceChange > pc_open
+if not inTrade and baseOpenCond
+    thresholdMet := true
+
+// === 新增：K线位置+涨幅过滤 ===
+useCandleAboveSMMA = input.bool(true,  "启用K线高低点高于SMMA的过滤")
+prevCandleGain = (close[1] - close[2]) / close[2]
+candleAboveSMMA = high > emaOpen and low > emaOpen
+candleFilterPass = not useCandleAboveSMMA or (prevCandleGain > pc_open and candleAboveSMMA)
+
+// === 实体K线整体高于SMMA（新增） ===
+entityAboveSMMA = math.min(open, close) > emaOpen
+
+// === 最终开仓条件（新增了 entityAboveSMMA 和 candleFilterPass） ===
+canOpen = thresholdMet and 
+          (not useEmaOpenFilter or emaOpenSlope < 0) and 
+          (not useAvoidLowest or emaOpen > emaLowest) and 
+          (not useSMMA200Filter or smma200Slope > 0) and 
+          candleFilterPass and 
+          entityAboveSMMA
+
+// === 执行首次开空（不传 qty，让策略按初始百分比自动计算数量） ===
+if not inTrade and canOpen and inTestPeriod
+    strategy.entry("Short_Entry", strategy.short, comment="首次开空")
+    inTrade         := true
+    addCount        := 0
+    lastAddPrice    := close
+    trailingActive  := false
+    totalQty        := na    // 这里不记录具体数量了
+    totalCost       := na
+    firstQty        := na
+    thresholdMet    := false
+
+// 等到下根 K 线策略真正持仓后，再取上一根的持仓量
+if inTrade and na(firstQty) and strategy.position_size[1] != 0
+    firstQty := math.abs(strategy.position_size[1])
+
+
+// === 加仓逻辑（DCA：按首仓量和倍数计算并传入 qty） ===
+if inTrade and not na(firstQty) and close >= lastAddPrice * (1 + dcaAddPct) and addCount < maxAdd and inTestPeriod
+    addCount += 1
+    // 1) 计算本次加仓量
+    addQty = firstQty * math.pow(addMult, addCount) + multStep * (addCount - 1)
+    // 2) 一行传入 qty 和 comment
+    strategy.entry("AddShort_" + str.tostring(addCount), strategy.short, addQty, comment="加仓 #" + str.tostring(addCount))
+    lastAddPrice := close
+
+
+// === 平均成本可视化 ===
+plot(inTrade ? strategy.position_avg_price : na, title="策略平均持仓价", style=plot.style_line, linewidth=2, color=color.green)
+
+// === 止盈 & 平仓指标 ===
+tpTriggered = inTrade and close < strategy.position_avg_price * (1 - pc_exit)
+
+// RSI 平仓
+rsi = ta.rsi(close, rsiLen)
+exitRSI = useRSI and rsi < rsiOversold
+
+// MACD 平仓
+[macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)
+exitMACD = useMACD and macdLine > signalLine and macdLine[1] <= signalLine[1]
+
+// Stoch 平仓
+stochK = ta.stoch(close, high, low, 14)
+stochD = ta.sma(stochK, 3)
+exitStoch = useStoch and stochK < 20 and stochK < stochD
+
+// SMMA 平仓反转
+exitEMA = useEmaCloseFilter and emaCloseReversal
+
+exitAll = trailingActive or exitRSI or exitMACD or exitStoch or exitEMA
+
+// === 移动止盈触发 ===
+if tpTriggered and not trailingActive
+    trailLowestPrice := close
+    trailingActive   := true
+
+// === 平仓执行 ===
+if exitAll
+    strategy.close_all(comment="指标+止盈平仓")
+    inTrade         := false
+    trailingActive  := false
+    lastAddPrice    := na
+    addCount        := 0
+    totalQty        := 0
+    totalCost       := 0
+    trailLowestPrice := na
+    firstQty         := na
+
+// === 可视化 SMMA 线 & 移动止盈 ===
+plot(rawEmaOpen,  title="开仓SMMA线", color=color.orange,  linewidth=2)
+plot(rawEmaClose, title="平仓SMMA线", color=color.fuchsia, linewidth=2)
+plot(trailingActive ? trailLowestPrice * (1 + trailingPct) : na, title="移动止盈触发价", style=plot.style_line, linewidth=1, color=color.red)
+
+
+
+
+

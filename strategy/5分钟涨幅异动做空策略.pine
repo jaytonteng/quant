@@ -1,0 +1,115 @@
+//@version=6
+strategy("5分钟涨幅异动做空策略", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=10, pyramiding=10)
+
+// === 回测时间区间（UI 可选） ===
+startTimeInput = input.time(timestamp("2024-01-01 00:00 +0000"), title="开始时间")
+endTimeInput   = input.time(timestamp("2024-03-01 00:00 +0000"),   title="结束时间")
+inTestPeriod   = (time >= startTimeInput) and (time <= endTimeInput)
+
+// === 参数 ===
+useDynamicThreshold = input.bool(true, "启用动态阈值（6个月数据）")
+manualThreshold = input.float(5.0, "手动设置涨幅阈值（%）", step=0.1) / 100
+lookbackPeriod = input.int(180, "历史数据回看天数（用于计算动态阈值）", minval=30, maxval=365)
+stdMultiplier = input.float(3.0, "标准差倍数", step=0.1)
+initialMarginPct = input.float(10.0, "初次开仓百分比（%）", step=0.1)
+maxAdd = input.int(3, "最大加仓次数")
+pc_exit = input.float(3, "止盈幅度（%）", step=0.1) / 100
+trailingPct = input.float(0.2, "移动止盈幅度（%）", step=0.01) / 100
+dcaAddPct = input.float(2.0, "加仓触发涨幅（%）", step=0.1) / 100
+addMult = input.float(1.0, "加仓数量倍数", step=0.1)
+
+// === 5分钟涨幅 ===
+price5minAgo = request.security(syminfo.tickerid, "1", close[4], lookahead=barmerge.lookahead_off)
+priceChange5min = (close - price5minAgo) / price5minAgo
+
+// === 动态阈值 ===
+var float dynamicThreshold = na
+var float avgChange = na
+var float stdChange = na
+if useDynamicThreshold
+    var array<float> priceChanges = array.new<float>()
+    if not na(priceChange5min)
+        array.push(priceChanges, priceChange5min)
+        maxArraySize = lookbackPeriod * 24 * 60
+        if array.size(priceChanges) > maxArraySize
+            array.shift(priceChanges)
+    if array.size(priceChanges) > 30
+        avgChange := array.avg(priceChanges)
+        stdChange := array.stdev(priceChanges)
+        dynamicThreshold := avgChange + (stdMultiplier * stdChange)
+
+finalThreshold = useDynamicThreshold and not na(dynamicThreshold) ? dynamicThreshold : manualThreshold
+anomalyDetected = not na(priceChange5min) and priceChange5min > finalThreshold
+
+// === 状态变量 ===
+var int addCount = 0
+var float lastAddPrice = na
+var bool trailingActive = false
+var float trailLowestPrice = na
+var float firstQty = na
+
+// === 持仓判断 ===
+hasPosition = strategy.position_size != 0
+isShort = strategy.position_size < 0
+
+// === 首次开仓 ===
+canOpen = anomalyDetected and not hasPosition and inTestPeriod
+if canOpen
+    strategy.entry("Short_Entry", strategy.short, qty_percent=initialMarginPct, comment="异动做空")
+    addCount := 0
+    lastAddPrice := close
+    trailingActive := false
+    firstQty := na
+
+// === 记录首仓量 ===
+if hasPosition and na(firstQty) and strategy.position_size[1] == 0 and strategy.position_size != 0
+    firstQty := math.abs(strategy.position_size)
+
+// === 加仓 ===
+if isShort and not na(firstQty) and close >= lastAddPrice * (1 + dcaAddPct) and addCount < maxAdd and inTestPeriod
+    addCount += 1
+    addQty = firstQty * math.pow(addMult, addCount)
+    strategy.entry("AddShort_" + str.tostring(addCount), strategy.short, addQty, comment="加仓 #" + str.tostring(addCount))
+    lastAddPrice := close
+
+// === 止盈 ===
+tpTriggered = isShort and close < strategy.position_avg_price * (1 - pc_exit)
+if tpTriggered and not trailingActive
+    trailLowestPrice := close
+    trailingActive := true
+
+// === 平仓 ===
+exitAll = trailingActive and close >= trailLowestPrice * (1 + trailingPct)
+if exitAll
+    strategy.close_all(comment="移动止盈平仓")
+    addCount := 0
+    lastAddPrice := na
+    trailingActive := false
+    trailLowestPrice := na
+    firstQty := na
+
+// === 可视化 ===
+plot(useDynamicThreshold and not na(dynamicThreshold) ? dynamicThreshold * 100 : manualThreshold * 100, title="动态阈值(%)", color=color.red, linewidth=2)
+plot(useDynamicThreshold and not na(avgChange) ? avgChange * 100 : na, title="平均涨幅(%)", color=color.blue, linewidth=1)
+plot(useDynamicThreshold and not na(avgChange) and not na(stdChange) ? (avgChange + stdChange) * 100 : na, title="1倍标准差(%)", color=color.orange, linewidth=1)
+plot(useDynamicThreshold and not na(avgChange) and not na(stdChange) ? (avgChange + 2 * stdChange) * 100 : na, title="2倍标准差(%)", color=color.yellow, linewidth=1)
+plot(not na(priceChange5min) ? priceChange5min * 100 : na, title="5分钟涨幅(%)", color=color.green, linewidth=1, style=plot.style_histogram)
+plot(isShort ? strategy.position_avg_price : na, title="策略平均持仓价", style=plot.style_line, linewidth=2, color=color.purple)
+plot(trailingActive and not na(trailLowestPrice) ? trailLowestPrice * (1 + trailingPct) : na, title="移动止盈触发价", style=plot.style_line, linewidth=1, color=color.red)
+
+// === 信息显示 ===
+if barstate.islast
+    var table infoTable = table.new(position.top_right, 2, 6, bgcolor=color.white, border_width=1)
+    table.cell(infoTable, 0, 0, "当前阈值", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 1, 0, str.tostring(finalThreshold * 100, "#.##") + "%", text_color=color.black, bgcolor=color.gray)
+    if useDynamicThreshold and not na(avgChange)
+        table.cell(infoTable, 0, 1, "平均涨幅", text_color=color.black, bgcolor=color.gray)
+        table.cell(infoTable, 1, 1, str.tostring(avgChange * 100, "#.##") + "%", text_color=color.black, bgcolor=color.gray)
+        table.cell(infoTable, 0, 2, "标准差", text_color=color.black, bgcolor=color.gray)
+        table.cell(infoTable, 1, 2, str.tostring(stdChange * 100, "#.##") + "%", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 0, 3, "当前5分钟涨幅", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 1, 3, not na(priceChange5min) ? str.tostring(priceChange5min * 100, "#.##") + "%" : "-", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 0, 4, "异动状态", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 1, 4, anomalyDetected ? "检测到异动" : "正常", text_color=anomalyDetected ? color.red : color.green, bgcolor=color.gray)
+    table.cell(infoTable, 0, 5, "持仓状态", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 1, 5, isShort ? "持仓中" : "无持仓", text_color=isShort ? color.green : color.gray, bgcolor=color.gray) 

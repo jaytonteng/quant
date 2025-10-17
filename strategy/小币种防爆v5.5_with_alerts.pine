@@ -1,0 +1,196 @@
+//@version=5  
+strategy("小币种防爆v5.5 (外部执行)", overlay=true, 
+         default_qty_type=strategy.percent_of_equity, default_qty_value=10, pyramiding=10)
+
+// ========================================
+// 🎯 重要说明：
+// 本策略用于生成交易信号，通过 Webhook 发送给外部服务执行
+// 图表上的 strategy.entry() 仅用于可视化，不执行真实交易
+// ========================================
+
+// === 用户参数 ===
+maxAdd        = input.int(4,   "最大加仓次数")
+pc_open       = input.float(1, "开仓阈值（%）")         / 100
+pc_exit       = input.float(3, "止盈幅度（%）")         / 100
+high_window   = input.int(720, "最高价周期（分钟)")
+useHighCond   = input.bool(false, "仅在最高价开仓")
+trailingPct   = input.float(0.2, "移动止盈幅度（%）", step=0.01) / 100
+
+// === DCA 加仓阈值 ===
+dcaList       = input.string("4,8,12,17", "加仓阈值列表（%），逗号分隔")
+var float[]   dcaPctArr = array.new_float()
+if barstate.isfirst
+    for pctStr in str.split(dcaList, ",")
+        array.push(dcaPctArr, str.tonumber(str.trim(pctStr)) / 100)
+
+// === 风控参数 ===
+maxDropPct        = input.float(20.0, "允许最大跌幅（%）", step=0.1) / 100
+dropLookbackMins  = input.int(1, "最大跌幅统计时间（分钟）")
+initialMargin     = input.float(40.0, "初次开仓保证金 (USDT)", step=0.1)
+addMult           = input.float(2.0,  "加仓数量倍数",     step=0.1)
+multStep          = input.float(1.0,  "倍数调整步进",     step=0.1)
+
+// === EMA 过滤 ===
+useEmaFilter  = input.bool(true, "启用EMA过滤")
+emaFastLen    = input.int(50, "EMA 短期", minval=1)
+emaMid1Len    = input.int(30, "EMA 中期1", minval=1)
+emaMid2Len    = input.int(20, "EMA 中期2", minval=1)
+emaSlowLen    = input.int(10, "EMA 长期", minval=1)
+
+// === RSI 过滤 ===
+useRsiFilter  = input.bool(false, "启用RSI过滤")
+rsiThreshold  = input.int(70, "RSI 阈值", minval=1, maxval=100)
+enableRsiClose = input.bool(true, "启用 RSI 达位且盈利时平仓")
+rsiCloseLen   = input.int(6, "RSI 平仓周期", minval=1)
+rsiCloseLevel = input.int(30, "RSI 平仓阈值", minval=1, maxval=100)
+
+// === Webhook 配置 ===
+signalToken = input.string("your_signal_token_here", "xiaobifang_token_2025")
+
+// === 状态变量 ===
+var float lastAddPrice     = na
+var int   addCount         = 0
+var bool  inTrade          = false
+var bool  trailingActive   = false
+var float trailLowestPrice = na
+var float totalQty         = 0.0
+var float totalCost        = 0.0
+var float firstQty         = na
+var float virtualEntryPrice = na
+
+// === 逻辑条件 ===
+priceChange = (close - close[1]) / close[1]
+isHigh      = close >= ta.highest(high, high_window)
+hhDrop      = ta.highest(high, dropLookbackMins)
+dropFromHigh = (close - hhDrop) / hhDrop
+allowDrop   = dropFromHigh >= -maxDropPct
+
+emaFast = ta.ema(close, emaFastLen)
+emaMid1 = ta.ema(close, emaMid1Len)
+emaMid2 = ta.ema(close, emaMid2Len)
+emaSlow = ta.ema(close, emaSlowLen)
+emaCond = not useEmaFilter or (emaFast > emaMid1 and emaMid1 > emaMid2 and emaMid2 > emaSlow)
+
+rsiValue = ta.rsi(close, 14)
+rsiCond  = not useRsiFilter or (rsiValue > rsiThreshold)
+
+// === 虚拟开仓 ===
+canOpen = priceChange > pc_open and (not useHighCond or isHigh) and allowDrop and emaCond and rsiCond
+
+if not inTrade and canOpen
+    inTrade           := true
+    addCount          := 0
+    lastAddPrice      := close
+    trailingActive    := false
+    totalQty          := 0.0
+    totalCost         := 0.0
+    firstQty          := na
+    virtualEntryPrice := close
+    
+    // 虚拟开仓不发送信号到服务器
+    // 仅用于图表显示
+    strategy.entry("VirtualOpen", strategy.short, qty=0, comment="虚拟开仓")
+
+// === 虚拟止盈 ===
+if inTrade and addCount == 0 and not na(virtualEntryPrice) and close < virtualEntryPrice * (1 - pc_exit)
+    inTrade           := false
+    lastAddPrice      := na
+    trailingActive    := false
+    trailLowestPrice  := na
+    totalQty          := 0.0
+    totalCost         := 0.0
+    virtualEntryPrice := na
+    
+    // 📡 发送虚拟止盈信号（不需要真实平仓，因为没有真实仓位）
+    strategy.close("VirtualOpen", comment="虚拟止盈结束")
+
+// === 加仓逻辑 ===
+maxAdds = math.min(maxAdd, array.size(dcaPctArr))
+if inTrade and addCount < maxAdds
+    thisPct = array.get(dcaPctArr, addCount)
+    thresholdPrice = lastAddPrice * (1 + thisPct)
+    if close > thresholdPrice
+        addCount += 1
+        qty = initialMargin / close
+        if addCount == 1
+            firstQty := qty
+        else
+            qty := firstQty * (addMult + multStep * (addCount - 1))
+        
+        // 📡 发送加仓信号
+        prevQty = totalQty
+        totalQty     += qty
+        totalCost    += qty * close
+        
+        alertMsg = '{"action":"sell","instrument":"' + syminfo.ticker + 'USDT.P","amount":"' + str.tostring(qty) + '","marketPosition":"short","prevMarketPosition":"short","marketPositionSize":"' + str.tostring(totalQty) + '","prevMarketPositionSize":"' + str.tostring(prevQty) + '","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '"}'
+        alert(alertMsg, alert.freq_once_per_bar)
+        
+        // 仅用于图表显示
+        strategy.entry("AddShort_" + str.tostring(addCount), strategy.short, qty=qty, comment="加仓 #" + str.tostring(addCount))
+        lastAddPrice := close
+        virtualEntryPrice := na
+
+// === 平均成本 ===
+avgCost = totalQty == 0 ? na : totalCost / totalQty
+plot(inTrade ? avgCost : na, title="手动平均成本", color=color.green, linewidth=2)
+
+// === RSI 止盈平仓 ===
+rsiCloseVal = ta.rsi(close, rsiCloseLen)
+rsiCloseTrigger = ta.crossunder(rsiCloseVal, rsiCloseLevel)
+rsiCloseProfitable = false
+if not na(avgCost) and totalQty > 0
+    rsiCloseProfitable := close < avgCost
+
+if enableRsiClose and inTrade and rsiCloseTrigger and rsiCloseProfitable
+    // 📡 发送平仓信号
+    alertMsg = '{"action":"buy","instrument":"' + syminfo.ticker + 'USDT.P","amount":"' + str.tostring(totalQty) + '","marketPosition":"flat","prevMarketPosition":"short","marketPositionSize":"0","prevMarketPositionSize":"' + str.tostring(totalQty) + '","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '"}'
+    alert(alertMsg, alert.freq_once_per_bar)
+    
+    strategy.close_all(comment="RSI 达位且盈利平仓")
+    
+    inTrade          := false
+    trailingActive   := false
+    lastAddPrice     := na
+    addCount         := 0
+    totalQty         := 0
+    totalCost        := 0
+    trailLowestPrice := na
+    firstQty         := na
+    virtualEntryPrice := na
+
+// === 移动止盈 ===
+tpTriggered = inTrade and not na(avgCost) and close < avgCost * (1 - pc_exit)
+if tpTriggered and not trailingActive
+    trailLowestPrice := close
+    trailingActive   := true
+
+if trailingActive
+    trailLowestPrice := math.min(trailLowestPrice, close)
+    if close > trailLowestPrice * (1 + trailingPct)
+        // 📡 发送平仓信号
+        alertMsg = '{"action":"buy","instrument":"' + syminfo.ticker + 'USDT.P","amount":"' + str.tostring(totalQty) + '","marketPosition":"flat","prevMarketPosition":"short","marketPositionSize":"0","prevMarketPositionSize":"' + str.tostring(totalQty) + '","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '"}'
+        alert(alertMsg, alert.freq_once_per_bar)
+        
+        strategy.close_all(comment="合并止盈平仓")
+        
+        inTrade          := false
+        trailingActive   := false
+        lastAddPrice     := na
+        addCount         := 0
+        totalQty         := 0
+        totalCost        := 0
+        trailLowestPrice := na
+        firstQty         := na
+        virtualEntryPrice := na
+
+plot(trailingActive ? trailLowestPrice * (1 + trailingPct) : na, title="移动止盈触发价", color=color.red)
+
+// === 可视化 ===
+plot(useEmaFilter ? emaFast : na, title="EMA 短期", color=color.orange)
+plot(useEmaFilter ? emaMid1 : na, title="EMA 中期1", color=color.blue)
+plot(useEmaFilter ? emaMid2 : na, title="EMA 中期2", color=color.purple)
+plot(useEmaFilter ? emaSlow : na, title="EMA 长期", color=color.red)
+hline(useRsiFilter ? rsiThreshold : na, title="RSI 阈值", color=color.gray, linestyle=hline.style_dotted)
+plot(useRsiFilter ? rsiValue : na, title="RSI 值", color=color.teal)
+plotshape(inTrade and addCount == 0 and not na(virtualEntryPrice) and close < virtualEntryPrice * (1 - pc_exit), title="虚拟止盈提示", location=location.belowbar, color=color.gray, style=shape.cross, size=size.small)
+

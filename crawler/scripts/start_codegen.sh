@@ -1,0 +1,1 @@
+playwright codegen --target=javascript --browser=chromium --launch-type=connect --channel=chrome --connect-params='{"wsEndpoint":"ws://localhost:9222/devtools/page/8459B4D5B2A0FD4FA7F27C03B1A92D35"}'

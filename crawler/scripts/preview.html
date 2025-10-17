@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok东南亚跨境电商精选产品分析报告</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#667eea',
+                        secondary: '#764ba2',
+                        success: '#28a745',
+                        warning: '#ffc107',
+                        danger: '#dc3545',
+                        info: '#17a2b8',
+                        light: '#f8f9fa',
+                        dark: '#343a40'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .product-card-hover {
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+            }
+            .product-card-hover:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
+            }
+            .gradient-bg {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
+            .stat-card {
+                background: linear-gradient(135deg, rgba(102, 126, 234, 0.9), rgba(118, 74, 162, 0.9));
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800">
+    <!-- 导航栏 -->
+    <nav class="sticky top-0 z-50 bg-white shadow-md">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <h1 class="text-xl font-bold text-primary">TikTok东南亚选品分析</h1>
+                <div class="hidden md:flex space-x-6">
+                    <a href="#overview" class="hover:text-primary transition-colors">市场概览</a>
+                    <a href="#beauty" class="hover:text-primary transition-colors">美妆工具</a>
+                    <a href="#home" class="hover:text-primary transition-colors">家居生活</a>
+                    <a href="#fashion" class="hover:text-primary transition-colors">时尚配饰</a>
+                    <a href="#health" class="hover:text-primary transition-colors">健康护理</a>
+                    <a href="#pet" class="hover:text-primary transition-colors">宠物用品</a>
+                </div>
+                <button class="md:hidden text-primary">
+                    <i class="fa fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 头部横幅 -->
+    <header class="gradient-bg text-white py-16 md:py-24">
+        <div class="container mx-auto px-4 text-center">
+            <h1 class="text-3xl md:text-5xl font-bold mb-4">TikTok东南亚跨境电商精选产品分析报告</h1>
+            <p class="text-lg md:text-xl opacity-90 max-w-3xl mx-auto">基于内容电商属性、视觉冲击力与市场潜力的深度分析</p>
+            <div class="mt-10 flex flex-wrap justify-center gap-6">
+                <div class="stat-card text-white p-4 rounded-lg shadow-lg">
+                    <div class="text-3xl font-bold">35+</div>
+                    <div class="text-sm opacity-90">精选潜力产品</div>
+                </div>
+                <div class="stat-card text-white p-4 rounded-lg shadow-lg">
+                    <div class="text-3xl font-bold">262亿</div>
+                    <div class="text-sm opacity-90">TikTok Shop年GMV</div>
+                </div>
+                <div class="stat-card text-white p-4 rounded-lg shadow-lg">
+                    <div class="text-3xl font-bold">58%</div>
+                    <div class="text-sm opacity-90">中国品牌占比优势</div>
+                </div>
+                <div class="stat-card text-white p-4 rounded-lg shadow-lg">
+                    <div class="text-3xl font-bold">231%</div>
+                    <div class="text-sm opacity-90">商品交易量增长率</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 市场概览 -->
+    <section id="overview" class="py-12 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl md:text-3xl font-bold mb-8 text-center">市场趋势概览</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-gray-50 p-6 rounded-xl shadow-sm">
+                    <h3 class="text-xl font-semibold mb-4 text-primary">核心品类市场占比</h3>
+                    <div class="h-80">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-gray-50 p-6 rounded-xl shadow-sm">
+                    <h3 class="text-xl font-semibold mb-4 text-primary">品类年增长率</h3>
+                    <div class="h-80">
+                        <canvas id="growthChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-10 bg-gradient-to-r from-primary/10 to-secondary/10 p-6 rounded-xl">
+                <h3 class="text-xl font-semibold mb-4">核心发现</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                        <div class="text-primary text-2xl mb-2"><i class="fa fa-camera"></i></div>
+                        <h4 class="font-semibold">视觉冲击力产品</h4>
+                        <p class="text-sm text-gray-600">穿戴甲、美容仪器等前后对比效果显著</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                        <div class="text-primary text-2xl mb-2"><i class="fa fa-repeat"></i></div>
+                        <h4 class="font-semibold">高复购潜力</h4>
+                        <p class="text-sm text-gray-600">护肤品、消耗品复购率超80%</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                        <div class="text-primary text-2xl mb-2"><i class="fa fa-share-alt"></i></div>
+                        <h4 class="font-semibold">社交属性突出</h4>
+                        <p class="text-sm text-gray-600">智能设备、定制首饰社交展示价值高</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm">
+                        <div class="text-primary text-2xl mb-2"><i class="fa fa-line-chart"></i></div>
+                        <h4 class="font-semibold">供不应求市场</h4>
+                        <p class="text-sm text-gray-600">男士护理、AI定制存在明显缺口</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 美妆工具类 -->
+    <section id="beauty" class="py-12 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl md:text-3xl font-bold mb-2 text-center">美妆工具类</h2>
+            <p class="text-center text-gray-600 mb-10">视觉冲击力强，内容传播性高</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 定制化穿戴甲 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-pink-400 to-purple-500 flex items-center justify-center">
+                        <i class="fa fa-diamond text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">定制化穿戴甲</h3>
+                            <span class="bg-success/10 text-success text-xs px-2 py-1 rounded-full">S级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>18-35岁年轻女性，时尚美妆爱好者</div>
+                            <div><strong>供需关系：</strong>高质量定制款供不应求</div>
+                            <div><strong>市场规模：</strong>年增长率14.3%</div>
+                            <div><strong>复购率：</strong>70%+（7-14天周期）</div>
+                            <div><strong>毛利率：</strong>70%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">视觉冲击力强</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">高复购</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">内容易传播</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">头部月销：6万件</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 电动睫毛夹 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-blue-400 to-indigo-500 flex items-center justify-center">
+                        <i class="fa fa-eye text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">电动睫毛夹</h3>
+                            <span class="bg-success/10 text-success text-xs px-2 py-1 rounded-full">S级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>18-34岁女性，美妆爱好者</div>
+                            <div><strong>供需关系：</strong>印尼缺货率37%，泰国搜索月增120%</div>
+                            <div><strong>市场规模：</strong>东南亚年增长16%</div>
+                            <div><strong>复购率：</strong>35%</div>
+                            <div><strong>毛利率：</strong>58%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">前后对比明显</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">物流成本低</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">转化率4.2%</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">头部月销：1.2万件</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LED光疗美容面罩 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-purple-400 to-pink-500 flex items-center justify-center">
+                        <i class="fa fa-lightbulb-o text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">LED光疗美容面罩</h3>
+                            <span class="bg-success/10 text-success text-xs px-2 py-1 rounded-full">S级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>25-50岁女性，科技护肤爱好者</div>
+                            <div><strong>供需关系：</strong>高质量临床验证款稀缺</div>
+                            <div><strong>市场规模：</strong>亚太CAGR 13.1%</div>
+                            <div><strong>复购率：</strong>25%</div>
+                            <div><strong>毛利率：</strong>65%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">科技感强</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">效果可视化</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">客单价高</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">市场规模：437万美元</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 便携电动化妆刷清洗器 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-green-400 to-teal-500 flex items-center justify-center">
+                        <i class="fa fa-tint text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">电动化妆刷清洗器</h3>
+                            <span class="bg-success/10 text-success text-xs px-2 py-1 rounded-full">S级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>美妆爱好者，专业化妆师</div>
+                            <div><strong>供需关系：</strong>TikTok热门传播品类</div>
+                            <div><strong>市场规模：</strong>年增长率19%</div>
+                            <div><strong>复购率：</strong>40%</div>
+                            <div><strong>毛利率：</strong>55%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">清洁对比明显</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">懒人经济</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">病毒式传播</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">代表品牌：AIYFINI, RICRIS</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 定制化精华液 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
+                        <i class="fa fa-flask text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">定制化精华液</h3>
+                            <span class="bg-info/10 text-info text-xs px-2 py-1 rounded-full">A级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>20-45岁精准护肤需求女性</div>
+                            <div><strong>供需关系：</strong>东南亚市场供不应求</div>
+                            <div><strong>市场规模：</strong>全球251亿美元</div>
+                            <div><strong>复购率：</strong>80%+</div>
+                            <div><strong>毛利率：</strong>60%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">个性化趋势</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">高复购</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">专业背书</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">CAGR 15.17%</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 竹制化妆刷 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-teal-400 to-green-500 flex items-center justify-center">
+                        <i class="fa fa-leaf text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">竹制化妆刷</h3>
+                            <span class="bg-info/10 text-info text-xs px-2 py-1 rounded-full">A级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>18-45岁环保意识女性</div>
+                            <div><strong>供需关系：</strong>设计感强的产品有空间</div>
+                            <div><strong>市场规模：</strong>亚太稳定增长</div>
+                            <div><strong>复购率：</strong>30%</div>
+                            <div><strong>毛利率：</strong>52%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">环保趋势</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">天然材质</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">视觉美感</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">代表品牌：EcoTools</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 家居生活类 -->
+    <section id="home" class="py-12 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl md:text-3xl font-bold mb-2 text-center">家居生活类</h2>
+            <p class="text-center text-gray-600 mb-10">实用性强，场景化展示效果好</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 高压蒸汽拖把 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                        <i class="fa fa-broom text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">高压蒸汽拖把</h3>
+                            <span class="bg-success/10 text-success text-xs px-2 py-1 rounded-full">S级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>30-45岁家庭主妇</div>
+                            <div><strong>供需关系：</strong>马来西亚库存周转仅8天</div>
+                            <div><strong>市场规模：</strong>年增长率14.3%</div>
+                            <div><strong>复购率：</strong>35%</div>
+                            <div><strong>毛利率：</strong>42%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">杀菌可视化</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">适配湿热气候</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">点击率提升300%</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">头部月销：8000件</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 模块化透明收纳盒 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-gray-400 to-blue-500 flex items-center justify-center">
+                        <i class="fa fa-cubes text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">模块化透明收纳盒</h3>
+                            <span class="bg-info/10 text-info text-xs px-2 py-1 rounded-full">A级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>20-45岁收纳爱好者</div>
+                            <div><strong>供需关系：</strong>设计感强的产品有空间</div>
+                            <div><strong>市场规模：</strong>全球12亿美元</div>
+                            <div><strong>复购率：</strong>45%</div>
+                            <div><strong>毛利率：</strong>50%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">前后对比明显</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">空间优化</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">DIY潜力</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">CAGR 9%</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 智能香薰机 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center">
+                        <i class="fa fa-pagelines text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">智能香薰机</h3>
+                            <span class="bg-info/10 text-info text-xs px-2 py-1 rounded-full">A级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>20-45岁品质生活追求者</div>
+                            <div><strong>供需关系：</strong>智能化产品稀缺</div>
+                            <div><strong>市场规模：</strong>亚太4.71亿美元</div>
+                            <div><strong>复购率：</strong>60%（含精油）</div>
+                            <div><strong>毛利率：</strong>55%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">氛围营造</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">智能家居</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">高复购</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">年增长9%</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 便携迷你投影仪 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-indigo-500 to-blue-500 flex items-center justify-center">
+                        <i class="fa fa-film text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">便携迷你投影仪</h3>
+                            <span class="bg-warning/10 text-warning text-xs px-2 py-1 rounded-full">B级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>18-35岁娱乐爱好者</div>
+                            <div><strong>供需关系：</strong>高性价比产品需求大</div>
+                            <div><strong>市场规模：</strong>全球36亿美元</div>
+                            <div><strong>复购率：</strong>20%</div>
+                            <div><strong>毛利率：</strong>45%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">场景多样</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">视觉冲击</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">便携性强</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">东南亚CAGR 9%</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 纳米海绵擦 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-yellow-500 to-green-500 flex items-center justify-center">
+                        <i class="fa fa-sponge text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">纳米海绵擦</h3>
+                            <span class="bg-info/10 text-info text-xs px-2 py-1 rounded-full">A级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>家庭主妇，清洁需求者</div>
+                            <div><strong>供需关系：</strong>越南库存周转仅5天</div>
+                            <div><strong>市场规模：</strong>需求稳定增长</div>
+                            <div><strong>复购率：</strong>70%</div>
+                            <div><strong>毛利率：</strong>65%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">去污对比强</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">成本低</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">点击率提升250%</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">头部月销：1.5万件</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 智能植物生长灯 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-green-500 to-teal-500 flex items-center justify-center">
+                        <i class="fa fa-sun-o text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">智能植物生长灯</h3>
+                            <span class="bg-success/10 text-success text-xs px-2 py-1 rounded-full">S级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>公寓居民，园艺爱好者</div>
+                            <div><strong>供需关系：</strong>供不应求</div>
+                            <div><strong>市场规模：</strong>4.26亿美元</div>
+                            <div><strong>复购率：</strong>35%</div>
+                            <div><strong>毛利率：</strong>58%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">生长可视化</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">高增长率</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">内容潜力大</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">CAGR 33.2%</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 时尚配饰类 -->
+    <section id="fashion" class="py-12 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl md:text-3xl font-bold mb-2 text-center">时尚配饰类</h2>
+            <p class="text-center text-gray-600 mb-10">社交属性强，个性化需求高</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 穆斯林头巾 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                        <i class="fa fa-scarf text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">穆斯林头巾</h3>
+                            <span class="bg-success/10 text-success text-xs px-2 py-1 rounded-full">S级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>25-35岁穆斯林女性</div>
+                            <div><strong>供需关系：</strong>印尼缺货率30%</div>
+                            <div><strong>市场规模：</strong>马来西亚搜索月增110%</div>
+                            <div><strong>复购率：</strong>28%</div>
+                            <div><strong>毛利率：</strong>60%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">宗教刚需</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">搭配展示</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">文化属性</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">头部月销：120万件</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 个性化男士配饰 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
+                        <i class="fa fa-gem text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">个性化男士配饰</h3>
+                            <span class="bg-info/10 text-info text-xs px-2 py-1 rounded-full">A级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>18-40岁时尚男性</div>
+                            <div><strong>供需关系：</strong>独特设计款供不应求</div>
+                            <div><strong>市场规模：</strong>持续增长</div>
+                            <div><strong>复购率：</strong>35%</div>
+                            <div><strong>毛利率：</strong>55%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">社交属性</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">个性化</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">礼品属性</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">代表品牌：Pandora</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 防晒衣 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-yellow-500 to-orange-500 flex items-center justify-center">
+                        <i class="fa fa-shield text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">防晒衣</h3>
+                            <span class="bg-info/10 text-info text-xs px-2 py-1 rounded-full">A级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>18-30岁年轻女性</div>
+                            <div><strong>供需关系：</strong>泰国库存周转10天</div>
+                            <div><strong>市场规模：</strong>防晒用品占比75%</div>
+                            <div><strong>复购率：</strong>32%</div>
+                            <div><strong>毛利率：</strong>55%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">降温效果</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">点击率提升280%</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">季节刚需</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">头部月销：1.2万件</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 男士固体香膏 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-gray-700 to-blue-900 flex items-center justify-center">
+                        <i class="fa fa-perfume text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">男士固体香膏</h3>
+                            <span class="bg-success/10 text-success text-xs px-2 py-1 rounded-full">S级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>18-40岁时尚男性</div>
+                            <div><strong>供需关系：</strong>蓝海市场</div>
+                            <div><strong>市场规模：</strong>男士护理年增长19%</div>
+                            <div><strong>复购率：</strong>45%</div>
+                            <div><strong>毛利率：</strong>62%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">便携商务</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">个性表达</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">高端形象</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">代表品牌：Viking Revolution</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 健康护理类 -->
+    <section id="health" class="py-12 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl md:text-3xl font-bold mb-2 text-center">健康护理类</h2>
+            <p class="text-center text-gray-600 mb-10">健康意识提升，需求稳定增长</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 颈部按摩器 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-red-500 to-orange-500 flex items-center justify-center">
+                        <i class="fa fa-heartbeat text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">颈部按摩器</h3>
+                            <span class="bg-info/10 text-info text-xs px-2 py-1 rounded-full">A级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>30-45岁办公室人群</div>
+                            <div><strong>供需关系：</strong>马来西亚缺货率27%</div>
+                            <div><strong>市场规模：</strong>健康护理占比60%</div>
+                            <div><strong>复购率：</strong>30%</div>
+                            <div><strong>毛利率：</strong>40%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">使用效果可视化</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">办公刚需</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">礼品属性</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">头部月销：6000件</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 瑜伽垫 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-green-500 to-teal-500 flex items-center justify-center">
+                        <i class="fa fa-spa text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">瑜伽垫</h3>
+                            <span class="bg-info/10 text-info text-xs px-2 py-1 rounded-full">A级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>20-35岁健身爱好者</div>
+                            <div><strong>供需关系：</strong>泰国库存周转12天</div>
+                            <div><strong>市场规模：</strong>运动用品占比50%</div>
+                            <div><strong>复购率：</strong>30%</div>
+                            <div><strong>毛利率：</strong>45%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">场景展示</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">健身趋势</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">内容潜力</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">头部月销：6000件</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 智能睡眠监测设备 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center">
+                        <i class="fa fa-bed text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">智能睡眠监测设备</h3>
+                            <span class="bg-success/10 text-success text-xs px-2 py-1 rounded-full">S级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>健康意识强的年轻人</div>
+                            <div><strong>供需关系：</strong>供不应求</div>
+                            <div><strong>市场规模：</strong>37.6亿美元</div>
+                            <div><strong>复购率：</strong>35%</div>
+                            <div><strong>毛利率：</strong>52%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">数据可视化</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">健康趋势</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">科技感</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">CAGR 14%</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 宠物用品类 -->
+    <section id="pet" class="py-12 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl md:text-3xl font-bold mb-2 text-center">宠物用品类</h2>
+            <p class="text-center text-gray-600 mb-10">宠物经济崛起，情感消费增长</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 智能宠物喂食器 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                        <i class="fa fa-paw text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">智能宠物喂食器</h3>
+                            <span class="bg-success/10 text-success text-xs px-2 py-1 rounded-full">S级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>25-55岁养宠人群</div>
+                            <div><strong>供需关系：</strong>亚太市场快速增长</div>
+                            <div><strong>市场规模：</strong>4.14亿美元</div>
+                            <div><strong>复购率：</strong>40%</div>
+                            <div><strong>毛利率：</strong>55%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">宠物互动</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">科技感</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">高增长</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">CAGR 15%</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 宠物定制化服饰 -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden product-card-hover border border-gray-100">
+                    <div class="h-48 bg-gradient-to-r from-pink-500 to-purple-500 flex items-center justify-center">
+                        <i class="fa fa-tshirt text-white text-6xl"></i>
+                    </div>
+                    <div class="p-5">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="text-xl font-bold">宠物定制化服饰</h3>
+                            <span class="bg-info/10 text-info text-xs px-2 py-1 rounded-full">A级</span>
+                        </div>
+                        <div class="space-y-2 text-sm text-gray-600 mb-4">
+                            <div><strong>目标受众：</strong>25-55岁宠物主人</div>
+                            <div><strong>供需关系：</strong>越南72%宠物主人购买</div>
+                            <div><strong>市场规模：</strong>3322万美元</div>
+                            <div><strong>复购率：</strong>50%</div>
+                            <div><strong>毛利率：</strong>60%</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">社交展示</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">个性化</span>
+                            <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded">情感消费</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">代表品牌：Lucy & Lola</div>
+                            <button class="text-primary hover:text-secondary transition-colors">
+                                <i class="fa fa-arrow-right"></i> 查看详情
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 结论与建议 -->
+    <section class="py-12 bg-white">
+        <div class="container mx-auto px-4">
+            <h2 class="text-2xl md:text-3xl font-bold mb-8 text-center">选品策略建议</h2>
+            <div class="bg-gradient-to-r from-primary/10 to-secondary/10 p-8 rounded-xl">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4 flex items-center">
+                            <i class="fa fa-check-circle text-primary mr-2"></i> 优先级策略
+                        </h3>
+                        <ul class="space-y-2 text-gray-700">
+                            <li class="flex items-start">
+                                <i class="fa fa-star text-warning mt-1 mr-2"></i>
+                                <span>优先布局S级产品：穿戴甲、电动睫毛夹、智能宠物喂食器</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fa fa-star text-warning mt-1 mr-2"></i>
+                                <span>其次发展A级产品：模块化收纳盒、瑜伽垫、男士配饰</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fa fa-star text-warning mt-1 mr-2"></i>
+                                <span>控制B级产品比例，不超过总SKU的30%</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4 flex items-center">
+                            <i class="fa fa-lightbulb-o text-primary mr-2"></i> 内容营销重点
+                        </h3>
+                        <ul class="space-y-2 text-gray-700">
+                            <li class="flex items-start">
+                                <i class="fa fa-play-circle text-primary mt-1 mr-2"></i>
+                                <span>突出前后对比效果，提升视觉冲击力</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fa fa-play-circle text-primary mt-1 mr-2"></i>
+                                <span>展示使用场景，增强代入感和实用性认知</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fa fa-play-circle text-primary mt-1 mr-2"></i>
+                                <span>利用达人实测，强化信任背书</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold mb-4 flex items-center">
+                            <i class="fa fa-shield text-primary mr-2"></i> 风险控制
+                        </h3>
+                        <ul class="space-y-2 text-gray-700">
+                            <li class="flex items-start">
+                                <i class="fa fa-exclamation-circle text-warning mt-1 mr-2"></i>
+                                <span>多品类布局，避免单一品类依赖</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fa fa-exclamation-circle text-warning mt-1 mr-2"></i>
+                                <span>关注认证要求，提前准备合规文件</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fa fa-exclamation-circle text-warning mt-1 mr-2"></i>
+                                <span>建立供应链备份，应对缺货风险</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-8 text-center">
+                    <p class="text-gray-700 max-w-3xl mx-auto">通过数据驱动的精铺策略，聚焦高潜力产品，结合强有力的内容营销，可在TikTok东南亚市场实现快速突破。建议3个月内完成S级产品布局，6个月内建立完整产品矩阵。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="bg-gray-800 text-white py-10">
+        <div class="container mx-auto px-4">
+            <div class="text-center">
+                <h3 class="text-xl font-bold mb-4">TikTok东南亚跨境电商精选产品分析报告</h3>
+                <p class="text-gray-400 mb-6">数据来源：平台公开数据、第三方工具、行业报告</p>
+                <div class="flex justify-center space-x-4 mb-6">
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors"><i class="fa fa-facebook"></i></a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors"><i class="fa fa-twitter"></i></a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors"><i class="fa fa-linkedin"></i></a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors"><i class="fa fa-instagram"></i></a>
+                </div>
+                <p class="text-gray-500 text-sm">© 2025 跨境电商研究中心. 保留所有权利.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 品类市场占比图表
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        new Chart(categoryCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['美妆工具', '家居生活', '时尚配饰', '健康护理', '宠物用品'],
+                datasets: [{
+                    data: [35, 28, 18, 12, 7],
+                    backgroundColor: [
+                        '#667eea',
+                        '#764ba2',
+                        '#13c2c2',
+                        '#fa8c16',
+                        '#28a745'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    title: {
+                        display: true,
+                        text: '各品类市场占比 (%)'
+                    }
+                }
+            }
+        });
+
+        // 品类增长率图表
+        const growthCtx = document.getElementById('growthChart').getContext('2d');
+        new Chart(growthCtx, {
+            type: 'bar',
+            data: {
+                labels: ['智能植物生长灯', 'LED美容面罩', '男士护理', '智能喂食器', '穿戴甲', '家居收纳'],
+                datasets: [{
+                    label: '年增长率 (%)',
+                    data: [33.2, 21.6, 19, 15, 14.3, 9],
+                    backgroundColor: '#667eea',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: '重点品类年增长率对比'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '增长率 (%)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // 平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>

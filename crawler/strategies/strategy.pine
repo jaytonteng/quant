@@ -1,0 +1,126 @@
+//@version=5 
+strategy("小币种防爆v5.1 t1", overlay=true, 
+         default_qty_type=strategy.percent_of_equity, default_qty_value=10, pyramiding=10)
+
+// === 用户参数 ===
+maxAdd        = input.int(3,   "最大加仓次数")
+pc_open       = input.float(3, "开仓阈值（%）")         / 100
+pc_exit       = input.float(1.5, "止盈幅度（%）")         / 100
+high_window   = input.int(720, "最高价周期（分钟)")
+useHighCond   = input.bool(false, "仅在最高价开仓")
+trailingPct   = input.float(0.2, "移动止盈幅度（%）", step=0.01) / 100
+
+// === 新增：DCA 可变加仓阈值列表 ===
+dcaList       = input.string("3,5,8", "加仓阈值列表（%），逗号分隔", tooltip="第1次3%，第2次5%，第3次8%……")
+var float[]   dcaPctArr = array.new_float()
+if barstate.isfirst
+    // 拆分字符串并存为数组（/100 转换为小数）
+    for pctStr in str.split(dcaList, ",")
+        array.push(dcaPctArr, str.tonumber(str.trim(pctStr)) / 100)
+
+// === ✅ 新增：最大跌幅及回溯时间 ===
+maxDropPct        = input.float(3.0, "允许最大跌幅（%）", step=0.1) / 100
+dropLookbackMins  = input.int(60, "最大跌幅统计时间（分钟）")
+
+// === 初次开仓保证金参数 ===
+initialMargin = input.float(2000.0, "名义价值 (USDT)", step=0.1)
+
+// === 加仓倍数控制参数 ===
+addMult       = input.float(2.0,  "加仓数量倍数",     step=0.1)
+multStep      = input.float(2.0,  "倍数调整步进",     step=0.1)
+
+// === ✅ 新增：EMA 过滤参数 ===
+
+// === ✅ 新增：RSI 过滤参数 ===
+
+// === 状态变量 ===
+var float lastAddPrice     = na
+var int   addCount         = 0
+var bool  inTrade          = false
+var bool  trailingActive   = false
+var float trailLowestPrice = na
+var float totalQty         = 0.0
+var float totalCost        = 0.0
+var float firstQty         = na
+
+// === 价格变化相关逻辑 ===
+priceChange = (close - close[1]) / close[1]
+isHigh      = close >= ta.highest(high, high_window)
+
+// === ✅ 新增逻辑：过去N分钟内最大下跌限制 ===
+hhDrop       = ta.highest(high, dropLookbackMins)
+dropFromHigh = (close - hhDrop) / hhDrop
+allowDrop    = dropFromHigh >= -maxDropPct  // 未大跌则允许首次开仓
+
+// === ✅ 计算 EMA 值 ===
+
+// === ✅ 计算 RSI 值 ===
+
+// === 开仓逻辑：加上“允许跌幅”条件 ===
+canOpen = priceChange > pc_open and (not useHighCond or isHigh) and allowDrop
+
+// === 新增：开仓拦截逻辑 ===
+var bool hasOpened = false  // 是否曾经开过仓
+
+// --- 首次开仓逻辑 --- 
+if not inTrade and canOpen and not hasOpened
+    qty0 = initialMargin / close
+    strategy.entry("Short_Entry", strategy.short, qty=qty0, comment="首次开空")
+    inTrade          := true
+    addCount         := 0
+    lastAddPrice     := close
+    trailingActive   := false
+    totalQty         := qty0
+    totalCost        := qty0 * close
+    firstQty         := qty0
+    hasOpened        := true
+
+// === 计算可用的最大加仓次数 ===
+maxAdds = maxAdd < array.size(dcaPctArr) ? maxAdd : array.size(dcaPctArr)
+
+// --- 加仓逻辑（改动） --- 
+if inTrade and addCount < maxAdds
+    // 用数组里的阈值，而不是固定的 pc_open
+    thisPct = array.get(dcaPctArr, addCount)
+    thresholdPrice = lastAddPrice * (1 + thisPct)
+    if close > thresholdPrice
+        addCount += 1
+        qty = firstQty * (addMult + multStep * (addCount - 1))
+        strategy.entry("AddShort_" + str.tostring(addCount), strategy.short, qty=qty, comment="加仓 #" + str.tostring(addCount))
+        lastAddPrice := close
+        totalQty  += qty
+        totalCost += qty * close
+
+// === 平均成本计算与止盈触发 ===
+avgCost = totalQty == 0 ? na : totalCost / totalQty
+plot(inTrade ? avgCost : na, title="手动平均成本", style=plot.style_line, linewidth=2, color=color.green)
+
+tpTriggered = inTrade and close < avgCost * (1 - pc_exit)
+
+// --- 启动移动止盈 --- 
+if tpTriggered and not trailingActive
+    trailLowestPrice := close
+    trailingActive   := true
+
+// --- 移动止盈更新与平仓 --- 
+if trailingActive
+    trailLowestPrice := math.min(trailLowestPrice, close)
+    if close > trailLowestPrice * (1 + trailingPct)
+        strategy.close_all(comment="合并止盈平仓")
+        inTrade          := false
+        trailingActive   := false
+        lastAddPrice     := na
+        addCount         := 0
+        totalQty         := 0
+        totalCost        := 0
+        trailLowestPrice := na
+        firstQty         := na
+        hasOpened        := false
+
+plot(trailingActive ? trailLowestPrice * (1 + trailingPct) : na, 
+     title="移动止盈触发价", style=plot.style_line, linewidth=1, color=color.red)
+
+// === ✅ 可视化：在图上绘制 EMA 和 RSI（可选显示） ===
+
+hline(na, title="RSI 阈值", color=color.gray, linestyle=hline.style_dotted)
+plot(na, title="RSI 值", color=color.teal, linewidth=1)

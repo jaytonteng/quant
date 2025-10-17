@@ -1,0 +1,116 @@
+//@version=5
+// ETH 区间波动 + 大行情自适应 策略
+// 作者: ChatGPT
+// 说明:
+// 1) 常态: 均值回归 (Bollinger + Z-score)  
+// 2) 大行情检测: ATR 突破 + 价格动量 + EMA 偏离  
+//    - 若方向与持仓一致, 启用移动止盈;  
+//    - 若方向相反或空仓, 则停开新仓(空仓) 或立即止损(逆向持仓)。
+// 3) 单笔持仓最长 48 条基础周期 (可调)
+// 4) 支持资金管理: 每笔亏损不超账户净值 riskPct
+
+strategy("ETH Range Revert w/ BigMove Filter", overlay=true,
+         default_qty_type=strategy.percent_of_equity,
+         initial_capital=10000,
+         calc_on_every_tick=true)
+
+// ===== 用户参数 =====
+baseTf          = input.timeframe("60", "基础周期 TF")
+lenMid          = input.int(50,  "均值长度 (EMA)")
+lenStd          = input.int(50,  "标准差长度")
+kBB             = input.float(1.5, "布林带倍数 k")
+
+// 进出场 Z 分数
+zEnter          = input.float(1.5, "开仓 Z")
+
+// ATR 与高波动检测
+atrLen          = input.int(24,  "ATR 长度")
+atrSpikeMult    = input.float(1.8, "ATR Spike 倍数", step=0.1)
+atrPermissPct   = input.float(6,   "ATR 百分比阈值%", step=0.1) / 100
+
+emaTrendLen     = input.int(200, "趋势 EMA")
+trendPctThresh  = input.float(4, "价格-EMA 偏离%", step=0.1) / 100
+
+riskPct         = input.float(0.5, "单笔风险%", step=0.1) / 100
+maxBarsHold     = input.int(48,   "最长持仓 Bars")
+
+trailATRMult    = input.float(1.0, "大行情盈利 Trailing ATR 倍数")
+
+// ===== 计算 =====
+price   = close
+mid     = ta.ema(price, lenMid)
+stddev  = ta.stdev(price, lenStd)
+upper   = mid + kBB * stddev
+lower   = mid - kBB * stddev
+z       = (price - mid) / stddev
+
+atr     = ta.atr(atrLen)
+atrPct  = atr / price
+avgATR  = ta.sma(atr, atrLen)
+atrSpike = atr > avgATR * atrSpikeMult or atrPct > atrPermissPct
+
+emaTrend = ta.ema(price, emaTrendLen)
+trendPct = math.abs(price - emaTrend) / emaTrend
+inTrend  = trendPct > trendPctThresh
+
+bigMove  = atrSpike or inTrend
+
+// 绘制
+plot(mid, color=color.yellow)
+plot(upper, color=color.blue, linewidth=1)
+plot(lower, color=color.blue, linewidth=1)
+plotshape(bigMove, title="BigMove", location=location.top, color=color.red, style=shape.triangledown, size=size.tiny)
+
+// ===== 交易逻辑 =====
+var int barIn = na
+var float entryPrice = na
+
+inPos     = strategy.position_size != 0
+posLong   = strategy.position_size > 0
+posShort  = strategy.position_size < 0
+
+// ---- 开仓 ----
+canTrade = not bigMove and not inPos
+
+if canTrade
+    // 做多: 低于下轨
+    if z < -zEnter
+        stop = price - 2*atr
+        qty  = strategy.equity * riskPct / math.abs(price-stop)
+        strategy.entry("Long", strategy.long, qty=qty)
+        entryPrice := price
+        barIn := bar_index
+    // 做空: 高于上轨
+    else if z > zEnter
+        stop = price + 2*atr
+        qty  = strategy.equity * riskPct / math.abs(stop-price)
+        strategy.entry("Short", strategy.short, qty=qty)
+        entryPrice := price
+        barIn := bar_index
+
+// ---- 常态出场 ----
+if inPos and not bigMove
+    // 到中线止盈
+    if posLong and price > mid
+        strategy.close("Long", comment="Mean TP")
+    if posShort and price < mid
+        strategy.close("Short", comment="Mean TP")
+
+    // 时间止盈
+    if bar_index - barIn >= maxBarsHold
+        strategy.close_all(comment="Time Exit")
+
+// ---- 大行情处理 ----
+if bigMove and inPos
+    // 方向一致 => 启用移动止盈
+    if posLong and price > entryPrice
+        trailStop = price - trailATRMult * atr
+        strategy.exit("TrailLong", from_entry="Long", stop=trailStop, comment="BigMoveTrail")
+    else if posShort and price < entryPrice
+        trailStop = price + trailATRMult * atr
+        strategy.exit("TrailShort", from_entry="Short", stop=trailStop, comment="BigMoveTrail")
+    else
+        // 方向相反立即止损
+        strategy.close_all(comment="BigMoveCut")
+
+// 大行情期禁开仓 (依靠 canTrade = false 已处理)

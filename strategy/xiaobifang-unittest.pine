@@ -1,0 +1,145 @@
+//@version=5
+strategy("小币种防爆v5.5 - 并发单元测试", overlay=true, 
+         default_qty_type=strategy.percent_of_equity, default_qty_value=10, pyramiding=50)
+
+// === 测试参数（和5.5保持一致）===
+signalToken = input.string("xiaobifang_token_2025", "策略Token")
+initialMargin = input.float(40.0, "初次开仓保证金 (USDT)", step=0.1)
+addMult = input.float(2.0, "加仓数量倍数", step=0.1)
+multStep = input.float(1.0, "倍数调整步进", step=0.1)
+maxAdd = input.int(4, "最大加仓次数")
+concurrentTest = input.bool(true, "启用并发测试")
+
+// === 并发测试币种 ===
+symbols = array.from("ETHUSDT.P", "BNBUSDT.P", "YGGUSDT.P", "1INCHUSDT.P", "AAVEUSDT.P")
+
+// === 状态变量 ===
+var int step = 0  // 0=虚拟开仓, 1-4=加仓, 5=平仓
+var float virtualPrice = na
+var float lastAddPrice = na
+var int addCount = 0
+
+// === 单元测试逻辑 ===
+// 每根K线执行一个步骤
+
+if step == 0
+    // 步骤0: 虚拟开仓（不发送信号到服务器）
+    virtualPrice := close
+    lastAddPrice := close
+    addCount := 0
+    
+    step := 1
+    strategy.entry("VirtualOpen", strategy.short, qty=0, comment="虚拟开仓")
+
+else if step >= 1 and step <= maxAdd
+    // 步骤1-4: 真实下单（开仓/加仓）
+    // 计算数量（和5.5逻辑一致）
+    firstQty = initialMargin / close
+    qty = step == 1 ? firstQty : firstQty * (addMult + multStep * (step - 1))
+    
+    if concurrentTest
+        // 并发模式：显式发送5个币种的信号
+        symbol1 = array.get(symbols, 0)
+        alertMsg1 = '{"action":"sell","instrument":"' + symbol1 + '","amount":"' + str.tostring(qty) + '","marketPosition":"short","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '","testMode":true,"concurrentTest":true,"batchId":"' + str.tostring(bar_index) + '","symbolIndex":"0"}'
+        alert(alertMsg1, alert.freq_all)
+        
+        symbol2 = array.get(symbols, 1)
+        alertMsg2 = '{"action":"sell","instrument":"' + symbol2 + '","amount":"' + str.tostring(qty) + '","marketPosition":"short","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '","testMode":true,"concurrentTest":true,"batchId":"' + str.tostring(bar_index) + '","symbolIndex":"1"}'
+        alert(alertMsg2, alert.freq_all)
+        
+        symbol3 = array.get(symbols, 2)
+        alertMsg3 = '{"action":"sell","instrument":"' + symbol3 + '","amount":"' + str.tostring(qty) + '","marketPosition":"short","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '","testMode":true,"concurrentTest":true,"batchId":"' + str.tostring(bar_index) + '","symbolIndex":"2"}'
+        alert(alertMsg3, alert.freq_all)
+        
+        symbol4 = array.get(symbols, 3)
+        alertMsg4 = '{"action":"sell","instrument":"' + symbol4 + '","amount":"' + str.tostring(qty) + '","marketPosition":"short","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '","testMode":true,"concurrentTest":true,"batchId":"' + str.tostring(bar_index) + '","symbolIndex":"3"}'
+        alert(alertMsg4, alert.freq_all)
+        
+        symbol5 = array.get(symbols, 4)
+        alertMsg5 = '{"action":"sell","instrument":"' + symbol5 + '","amount":"' + str.tostring(qty) + '","marketPosition":"short","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '","testMode":true,"concurrentTest":true,"batchId":"' + str.tostring(bar_index) + '","symbolIndex":"4"}'
+        alert(alertMsg5, alert.freq_all)
+        
+        strategy.entry("Trade_" + str.tostring(step), strategy.short, qty=qty, comment=step == 1 ? "开仓x5" : "加仓x5 #" + str.tostring(step))
+    else
+        // 单币种模式：只发送当前图表币种
+        alertMsg = '{"action":"sell","instrument":"' + syminfo.ticker + 'USDT.P","amount":"' + str.tostring(qty) + '","marketPosition":"short","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '","testMode":true}'
+        alert(alertMsg, alert.freq_once_per_bar)
+        
+        strategy.entry("Trade_" + str.tostring(step), strategy.short, qty=qty, comment=step == 1 ? "开仓" : "加仓 #" + str.tostring(step))
+    
+    lastAddPrice := close
+    addCount := step
+    step := step + 1
+
+else if step == maxAdd + 1
+    // 步骤5: 平仓
+    if concurrentTest
+        // 并发模式：显式发送5个币种的平仓信号
+        closeSym1 = array.get(symbols, 0)
+        closeMsg1 = '{"action":"buy","instrument":"' + closeSym1 + '","marketPosition":"flat","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '","testMode":true,"concurrentTest":true,"batchId":"' + str.tostring(bar_index) + '","symbolIndex":"0"}'
+        alert(closeMsg1, alert.freq_all)
+        
+        closeSym2 = array.get(symbols, 1)
+        closeMsg2 = '{"action":"buy","instrument":"' + closeSym2 + '","marketPosition":"flat","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '","testMode":true,"concurrentTest":true,"batchId":"' + str.tostring(bar_index) + '","symbolIndex":"1"}'
+        alert(closeMsg2, alert.freq_all)
+        
+        closeSym3 = array.get(symbols, 2)
+        closeMsg3 = '{"action":"buy","instrument":"' + closeSym3 + '","marketPosition":"flat","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '","testMode":true,"concurrentTest":true,"batchId":"' + str.tostring(bar_index) + '","symbolIndex":"2"}'
+        alert(closeMsg3, alert.freq_all)
+        
+        closeSym4 = array.get(symbols, 3)
+        closeMsg4 = '{"action":"buy","instrument":"' + closeSym4 + '","marketPosition":"flat","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '","testMode":true,"concurrentTest":true,"batchId":"' + str.tostring(bar_index) + '","symbolIndex":"3"}'
+        alert(closeMsg4, alert.freq_all)
+        
+        closeSym5 = array.get(symbols, 4)
+        closeMsg5 = '{"action":"buy","instrument":"' + closeSym5 + '","marketPosition":"flat","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '","testMode":true,"concurrentTest":true,"batchId":"' + str.tostring(bar_index) + '","symbolIndex":"4"}'
+        alert(closeMsg5, alert.freq_all)
+        
+        strategy.close_all(comment="平仓x5")
+    else
+        // 单币种模式
+        alertMsg = '{"action":"buy","instrument":"' + syminfo.ticker + 'USDT.P","marketPosition":"flat","timestamp":"' + str.tostring(time) + '","signalToken":"' + signalToken + '","testMode":true}'
+        alert(alertMsg, alert.freq_once_per_bar)
+        
+        strategy.close_all(comment="平仓")
+    
+    step := 0  // 重置，开始下一轮循环
+    virtualPrice := na
+    lastAddPrice := na
+    addCount := 0
+
+// === 可视化 ===
+bgcolor(step == 0 ? color.new(color.blue, 90) : na, title="虚拟开仓")
+bgcolor(step >= 1 and step <= maxAdd ? color.new(color.red, 90) : na, title="加仓中")
+bgcolor(step == maxAdd + 1 ? color.new(color.green, 90) : na, title="平仓")
+
+plotshape(step == 0, title="虚拟开仓", location=location.abovebar, color=color.blue, style=shape.circle, size=size.small)
+plotshape(step >= 1 and step <= maxAdd, title="加仓", location=location.abovebar, color=color.red, style=shape.triangleup, size=size.normal)
+plotshape(step == maxAdd + 1, title="平仓", location=location.belowbar, color=color.green, style=shape.triangledown, size=size.large)
+
+// === 信息显示 ===
+var table infoTable = table.new(position.top_right, 2, 7, bgcolor=color.white, border_width=1)
+if barstate.islast
+    table.cell(infoTable, 0, 0, "测试模式", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 1, 0, concurrentTest ? "并发测试" : "单币种测试", text_color=concurrentTest ? color.red : color.blue)
+    
+    table.cell(infoTable, 0, 1, "当前步骤", text_color=color.black, bgcolor=color.gray)
+    stepText = step == 0 ? "虚拟开仓" : step <= maxAdd ? "加仓 #" + str.tostring(step) : "平仓"
+    stepColor = step == 0 ? color.blue : step <= maxAdd ? color.red : color.green
+    table.cell(infoTable, 1, 1, stepText, text_color=stepColor)
+    
+    table.cell(infoTable, 0, 2, "币种数量", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 1, 2, concurrentTest ? str.tostring(array.size(symbols)) + "个" : "1个", text_color=color.black)
+    
+    table.cell(infoTable, 0, 3, "加仓次数", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 1, 3, str.tostring(addCount) + "/" + str.tostring(maxAdd), text_color=color.black)
+    
+    table.cell(infoTable, 0, 4, "虚拟价格", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 1, 4, na(virtualPrice) ? "N/A" : str.tostring(virtualPrice, "#.##"), text_color=color.black)
+    
+    table.cell(infoTable, 0, 5, "当前币种", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 1, 5, concurrentTest ? "多币种" : syminfo.ticker, text_color=color.black)
+    
+    table.cell(infoTable, 0, 6, "K线索引", text_color=color.black, bgcolor=color.gray)
+    table.cell(infoTable, 1, 6, str.tostring(bar_index), text_color=color.black)
+

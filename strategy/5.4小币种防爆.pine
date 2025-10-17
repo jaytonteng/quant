@@ -1,0 +1,182 @@
+//@version=5  
+strategy("小币种防爆v5.4", overlay=true, 
+         default_qty_type=strategy.percent_of_equity, default_qty_value=10, pyramiding=10)
+
+// === 用户参数 ===
+maxAdd        = input.int(4,   "最大加仓次数")
+pc_open       = input.float(1, "开仓阈值（%）")         / 100
+pc_exit       = input.float(3, "止盈幅度（%）")         / 100
+high_window   = input.int(720, "最高价周期（分钟)")
+useHighCond   = input.bool(false, "仅在最高价开仓")
+trailingPct   = input.float(0.2, "移动止盈幅度（%）", step=0.01) / 100
+
+// === 新增：DCA 可变加仓阈值列表 ===
+dcaList       = input.string("4,8,12,17", "加仓阈值列表（%），逗号分隔")
+var float[]   dcaPctArr = array.new_float()
+if barstate.isfirst
+    for pctStr in str.split(dcaList, ",")
+        array.push(dcaPctArr, str.tonumber(str.trim(pctStr)) / 100)
+
+// === 最大跌幅及回溯时间 ===
+maxDropPct        = input.float(20.0, "允许最大跌幅（%）", step=0.1) / 100
+dropLookbackMins  = input.int(1, "最大跌幅统计时间（分钟）")
+
+// === 初次开仓保证金参数 ===
+initialMargin = input.float(1.0, "初次开仓保证金 (USDT)", step=0.1)
+
+// === 加仓倍数控制参数 ===
+addMult       = input.float(2.0,  "加仓数量倍数",     step=0.1)
+multStep      = input.float(1.0,  "倍数调整步进",     step=0.1)
+
+// === EMA 过滤参数 ===
+useEmaFilter  = input.bool(true, "启用EMA过滤")
+emaFastLen    = input.int(50, "EMA 短期", minval=1)
+emaMid1Len    = input.int(30, "EMA 中期1", minval=1)
+emaMid2Len    = input.int(20, "EMA 中期2", minval=1)
+emaSlowLen    = input.int(10, "EMA 长期", minval=1)
+
+// === RSI 过滤参数 ===
+useRsiFilter  = input.bool(false, "启用RSI过滤")
+rsiThreshold  = input.int(70, "RSI 阈值", minval=1, maxval=100)
+
+// === 状态变量 ===
+var float lastAddPrice     = na
+var int   addCount         = 0
+var bool  inTrade          = false
+var bool  trailingActive   = false
+var float trailLowestPrice = na
+var float totalQty         = 0.0
+var float totalCost        = 0.0
+var float firstQty         = na
+var float virtualEntryPrice = na  // ⬅️ 新增：虚拟开仓价格
+
+// === 逻辑条件 ===
+priceChange = (close - close[1]) / close[1]
+isHigh      = close >= ta.highest(high, high_window)
+hhDrop      = ta.highest(high, dropLookbackMins)
+dropFromHigh = (close - hhDrop) / hhDrop
+allowDrop   = dropFromHigh >= -maxDropPct
+
+emaFast = ta.ema(close, emaFastLen)
+emaMid1 = ta.ema(close, emaMid1Len)
+emaMid2 = ta.ema(close, emaMid2Len)
+emaSlow = ta.ema(close, emaSlowLen)
+emaCond = not useEmaFilter or (emaFast > emaMid1 and emaMid1 > emaMid2 and emaMid2 > emaSlow)
+
+rsiValue = ta.rsi(close, 14)
+rsiCond  = not useRsiFilter or (rsiValue > rsiThreshold)
+
+// === 开仓逻辑 ===
+canOpen = priceChange > pc_open and (not useHighCond or isHigh) and allowDrop and emaCond and rsiCond
+
+// === 虚拟建仓 + 实际不建仓 ===
+if not inTrade and canOpen
+    inTrade           := true
+    addCount          := 0
+    lastAddPrice      := close
+    trailingActive    := false
+    totalQty          := 0.0
+    totalCost         := 0.0
+    firstQty          := na
+    virtualEntryPrice := close  // ⬅️ 记录虚拟开仓价
+    strategy.entry("VirtualOpen", strategy.short, qty=0, comment="虚拟开仓")
+
+// === 虚拟止盈逻辑：未加仓前触发止盈 ===
+// <<< 修复点：原代码中直接用 `virtualEntryPrice` 作为逻辑表达式（非 bool），改为显式判断 not na(...)
+if inTrade and addCount == 0 and not na(virtualEntryPrice) and close < virtualEntryPrice * (0.6 - pc_exit)
+    inTrade           := false
+    lastAddPrice      := na
+    trailingActive    := false
+    trailLowestPrice  := na
+    totalQty          := 0.0
+    totalCost         := 0.0
+    virtualEntryPrice := na
+    strategy.close("VirtualOpen", comment="虚拟止盈结束")
+
+// === 加仓逻辑 ===
+maxAdds = math.min(maxAdd, array.size(dcaPctArr))
+if inTrade and addCount < maxAdds
+    thisPct = array.get(dcaPctArr, addCount)
+    thresholdPrice = lastAddPrice * (1 + thisPct)
+    if close > thresholdPrice
+        addCount += 1
+        qty = initialMargin / close  // ⬅️ 第一次加仓按初始保证金计算
+        if addCount == 1
+            firstQty := qty
+        else
+            qty := firstQty * (addMult + multStep * (addCount - 1))
+        strategy.entry("AddShort_" + str.tostring(addCount), strategy.short, qty=qty, comment="加仓 #" + str.tostring(addCount))
+        lastAddPrice := close
+        totalQty     += qty
+        totalCost    += qty * close
+        virtualEntryPrice := na  // 实际加仓后不再追踪虚拟止盈
+
+// === 平均成本 & 止盈判断 ===
+avgCost = totalQty == 0 ? na : totalCost / totalQty
+plot(inTrade ? avgCost : na, title="手动平均成本", color=color.green, linewidth=2)
+
+// === 新增：RSI 到达并盈利的平仓逻辑（可开关） ===
+enableRsiClose = input.bool(true, "启用 RSI 达位且盈利时平仓")
+rsiCloseLen   = input.int(6, "RSI 平仓周期", minval=1)
+rsiCloseLevel = input.int(30, "RSI 平仓阈值", minval=1, maxval=100)
+
+rsiCloseVal = ta.rsi(close, rsiCloseLen)
+// 向下触达判断：使用 crossunder（从上向下穿过阈值）
+rsiCloseTrigger = ta.crossunder(rsiCloseVal, rsiCloseLevel)
+
+// 判断是否对当前持仓“有盈利”
+// 注：此策略以做空为主，avgCost 以已成交的 totalCost/totalQty 计算
+rsiCloseProfitable = false
+if not na(avgCost) and totalQty > 0
+    // 若是空头（更常见），当当前价比 avgCost 更低则有盈利
+    // 这里以 totalQty>0 表示我们有实际仓位（由加仓逻辑累积）
+    rsiCloseProfitable := close < avgCost
+
+// 最终触发：启用、处于 inTrade、触发 RSI 向下到位、且计算出盈利
+if enableRsiClose and inTrade and rsiCloseTrigger and rsiCloseProfitable
+    strategy.close_all(comment="RSI 达位且盈利平仓")
+    // 同移动止盈触发后的清理一致
+    inTrade          := false
+    trailingActive   := false
+    lastAddPrice     := na
+    addCount         := 0
+    totalQty         := 0
+    totalCost        := 0
+    trailLowestPrice := na
+    firstQty         := na
+    virtualEntryPrice := na
+
+// === 原始的止盈/移动止盈逻辑（保留） ===
+// <<< 修复点：avgCost 可能为 na，给 tpTriggered 加上显式的 not na(avgCost) 判断
+tpTriggered = inTrade and not na(avgCost) and close < avgCost * (1 - pc_exit)
+if tpTriggered and not trailingActive
+    trailLowestPrice := close
+    trailingActive   := true
+
+if trailingActive
+    trailLowestPrice := math.min(trailLowestPrice, close)
+    if close > trailLowestPrice * (1 + trailingPct)
+        strategy.close_all(comment="合并止盈平仓")
+        inTrade          := false
+        trailingActive   := false
+        lastAddPrice     := na
+        addCount         := 0
+        totalQty         := 0
+        totalCost        := 0
+        trailLowestPrice := na
+        firstQty         := na
+        virtualEntryPrice := na
+
+plot(trailingActive ? trailLowestPrice * (1 + trailingPct) : na, title="移动止盈触发价", color=color.red)
+
+// === 可视化 ===
+plot(useEmaFilter ? emaFast : na, title="EMA 短期", color=color.orange)
+plot(useEmaFilter ? emaMid1 : na, title="EMA 中期1", color=color.blue)
+plot(useEmaFilter ? emaMid2 : na, title="EMA 中期2", color=color.purple)
+plot(useEmaFilter ? emaSlow : na, title="EMA 长期", color=color.red)
+hline(useRsiFilter ? rsiThreshold : na, title="RSI 阈值", color=color.gray, linestyle=hline.style_dotted)
+plot(useRsiFilter ? rsiValue : na, title="RSI 值", color=color.teal)
+
+// ⬅️ 可选：在图上标出虚拟止盈点
+// <<< 修复点：同上，确保 virtualEntryPrice 不是 na 再比较
+plotshape(inTrade and addCount == 0 and not na(virtualEntryPrice) and close < virtualEntryPrice * (1 - pc_exit), title="虚拟止盈提示", location=location.belowbar, color=color.gray, style=shape.cross, size=size.small)
