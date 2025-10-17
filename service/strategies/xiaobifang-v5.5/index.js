@@ -136,14 +136,26 @@ class XiaoBiFangStrategy {
    */
   async handleWebhook(signal) {
     try {
+      logger.info('📨 收到Webhook信号', { signal });
+      
       // 1. 验证signalToken
       if (signal.signalToken !== this.config.signalToken) {
-        logger.warn(`❌ Token不匹配`);
+        logger.warn(`❌ Token不匹配`, { 
+          received: signal.signalToken, 
+          expected: this.config.signalToken 
+        });
         return { status: 'error', message: 'Invalid signal token' };
       }
 
       const { action, instrument, amount, marketPosition } = signal;
+      logger.info('📋 解析信号参数', { action, instrument, amount, marketPosition });
       const symbol = this.convertSymbol(instrument);
+      
+      if (!symbol) {
+        logger.error('❌ 无法转换币种格式', { instrument });
+        return { status: 'error', message: 'Invalid instrument format' };
+      }
+      
       const qty = parseFloat(amount);
       
       const actionText = action === 'sell' ? '📉开仓/加仓' : action === 'buy' ? '📈平仓' : action;
@@ -533,6 +545,11 @@ class XiaoBiFangStrategy {
    * TradingView: ETHUSDT.P -> OKX: ETH-USDT-SWAP
    */
   convertSymbol(instrument) {
+    if (!instrument) {
+      logger.error('❌ instrument 参数为空');
+      return null;
+    }
+    
     // 移除 .P 后缀
     let symbol = instrument.replace('.P', '');
     // 在 USDT 前面插入 -，然后添加 -SWAP
