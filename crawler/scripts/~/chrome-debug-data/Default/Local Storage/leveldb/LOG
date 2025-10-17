@@ -1,0 +1,5 @@
+2025/10/17-20:53:05.639 3b87925 Creating DB /Users/jeffteng/Documents/development/quant/crawler/scripts/~/chrome-debug-data/Default/Local Storage/leveldb since it was missing.
+2025/10/17-20:53:05.644 3b87925 Reusing MANIFEST /Users/jeffteng/Documents/development/quant/crawler/scripts/~/chrome-debug-data/Default/Local Storage/leveldb/MANIFEST-000001
+2025/10/17-21:31:30.576 3b87928 Level-0 table #5: started
+2025/10/17-21:31:30.586 3b87928 Level-0 table #5: 21273 bytes OK
+2025/10/17-21:31:30.588 3b87928 Delete type=0 #3

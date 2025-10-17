@@ -210,7 +210,7 @@ const initPage = async () => {
 
 
     // 示例：删除指定策略的所有警报
-    await deleteAlertsByStrategy(page, context, '小币种防爆v5.2');
+    await deleteAlertsByStrategy(page, context, '小币种防爆v5.4');
 
     await wait(page, 5000)
 
