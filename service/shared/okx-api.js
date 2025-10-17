@@ -10,14 +10,51 @@ class OKXClient {
     this.passphrase = config.okx.passphrase;
     this.baseUrl = config.okx.baseUrl;
     this.simulated = config.okx.simulated;
+    
+    // 检查必要的配置
+    if (!this.apiKey || !this.secretKey || !this.passphrase) {
+      logger.error('❌ OKX API 配置不完整', {
+        hasApiKey: !!this.apiKey,
+        hasSecretKey: !!this.secretKey,
+        hasPassphrase: !!this.passphrase,
+        simulated: this.simulated
+      });
+      throw new Error('OKX API 配置不完整，请检查环境变量');
+    }
+    
+    logger.info(`✅ OKX API 配置完成 (${this.simulated ? '模拟盘' : '实盘'})`);
   }
 
   /**
    * 生成签名
    */
   generateSignature(timestamp, method, path, body = '') {
-    const message = timestamp + method + path + body;
-    return crypto.HmacSHA256(message, this.secretKey).toString(crypto.enc.Base64);
+    try {
+      // 检查密钥是否存在
+      if (!this.secretKey) {
+        throw new Error('OKX Secret Key 未配置');
+      }
+      
+      const message = timestamp + method + path + body;
+      const signature = crypto.HmacSHA256(message, this.secretKey);
+      
+      // 确保返回字符串格式
+      if (signature && typeof signature.toString === 'function') {
+        return signature.toString(crypto.enc.Base64);
+      } else {
+        throw new Error('签名生成失败：crypto-js 返回异常');
+      }
+    } catch (error) {
+      logger.error(`❌ 签名生成失败: ${error.message}`, {
+        hasSecretKey: !!this.secretKey,
+        secretKeyLength: this.secretKey ? this.secretKey.length : 0,
+        timestamp,
+        method,
+        path,
+        bodyLength: body ? body.length : 0
+      });
+      throw new Error(`签名生成失败: ${error.message}`);
+    }
   }
 
   /**
