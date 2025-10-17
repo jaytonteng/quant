@@ -136,19 +136,13 @@ class XiaoBiFangStrategy {
    */
   async handleWebhook(signal) {
     try {
-      logger.info('📨 收到Webhook信号', { signal });
-      
       // 1. 验证signalToken
       if (signal.signalToken !== this.config.signalToken) {
-        logger.warn(`❌ Token不匹配`, { 
-          received: signal.signalToken, 
-          expected: this.config.signalToken 
-        });
+        logger.warn(`❌ Token不匹配`);
         return { status: 'error', message: 'Invalid signal token' };
       }
 
       const { action, instrument, amount, marketPosition } = signal;
-      logger.info('📋 解析信号参数', { action, instrument, amount, marketPosition });
       const symbol = this.convertSymbol(instrument);
       
       if (!symbol) {
@@ -183,24 +177,18 @@ class XiaoBiFangStrategy {
    * 处理交易（开仓/加仓统一处理）
    */
   async handleTrade(symbol, side, amount) {
-    logger.info(`🎯 开始处理交易: ${symbol} ${side} ${amount}`);
-    
     // 使用订单队列串行处理，避免API请求过多
     return await this.orderQueue.enqueue(async () => {
       try {
-        logger.info(`📊 查询 ${symbol} 持仓状态...`);
         // 1. 实时查询OKX持仓状态
         const positions = await this.okx.getPositions(symbol);
         const hasPosition = positions && positions.length > 0 && parseFloat(positions[0].pos) !== 0;
-        logger.info(`📊 ${symbol} 持仓状态: ${hasPosition ? '有持仓' : '无持仓'}`, { positions });
 
         // 2. 如果是开仓，检查并发限制（实时查询OKX持仓数量）
         if (!hasPosition) {
-          logger.info(`🔍 检查并发限制...`);
           // 实时查询OKX所有持仓，计算当前实际持仓数量
           const allPositions = await this.okx.getPositions();
           const actualPositionCount = allPositions.filter(pos => parseFloat(pos.pos) !== 0).length;
-          logger.info(`📊 当前持仓数量: ${actualPositionCount}/${this.config.position.maxConcurrentPositions}`);
           
           if (actualPositionCount >= this.config.position.maxConcurrentPositions) {
             logger.warn(`❌ ${symbol} 达到并发限制 (${actualPositionCount}/${this.config.position.maxConcurrentPositions})`);
@@ -212,15 +200,12 @@ class XiaoBiFangStrategy {
         }
 
       // 3. 获取当前价格
-      logger.info(`💰 获取 ${symbol} 当前价格...`);
       const candles = await this.okx.getCandles(symbol, '1m', 1);
       const currentPrice = parseFloat(candles[0][4]);
-      logger.info(`💰 ${symbol} 当前价格: ${currentPrice}`);
       
       const margin = amount * currentPrice;
       const posSide = side === 'long' ? 'long' : 'short';
       const orderSide = side === 'long' ? 'buy' : 'sell';
-      logger.info(`📋 交易参数: ${orderSide} ${amount} ${posSide}, 保证金: ${margin}`);
 
       // 4. 检查单币保证金占比（加仓时检查）
       if (hasPosition) {
@@ -239,10 +224,8 @@ class XiaoBiFangStrategy {
 
       // 5. 设置杠杆（只在无持仓时设置）
       if (!hasPosition) {
-        logger.info(`⚙️ 设置 ${symbol} 杠杆: ${this.config.position.leverage}x`);
         try {
           await this.okx.setLeverage(symbol, this.config.position.leverage, 'isolated', posSide);
-          logger.info(`✅ 杠杆设置成功`);
           await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (leverageError) {
           logger.error(`❌ 杠杆设置失败: ${leverageError.message}`);
@@ -251,8 +234,6 @@ class XiaoBiFangStrategy {
       }
 
       // 6. 下单（不设置止盈止损，由Pine Script控制）
-      logger.info(`📤 准备下单: ${symbol} ${orderSide} ${amount} ${posSide} @${currentPrice}`);
-      
       const order = await this.okx.placeOrder({
         instId: symbol,
         side: orderSide,
@@ -262,7 +243,7 @@ class XiaoBiFangStrategy {
         tdMode: this.config.position.tdMode
       });
 
-      logger.info(`✅ ${hasPosition ? '加仓' : '开仓'}成功 ${symbol} ${amount} @${currentPrice}`, { orderId: order.ordId });
+      logger.info(`✅ ${hasPosition ? '加仓' : '开仓'}成功 ${symbol} ${amount} @${currentPrice}`);
 
       // 发送邮件通知
       await emailNotifier.sendTradeNotification({

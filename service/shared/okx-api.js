@@ -21,9 +21,9 @@ class OKXClient {
   }
 
   /**
-   * 发送 API 请求（带重试机制）
+   * 发送 API 请求
    */
-  async request(method, endpoint, params = {}, retryCount = 0) {
+  async request(method, endpoint, params = {}) {
     const timestamp = new Date().toISOString();
     const queryString = method === 'GET' && Object.keys(params).length > 0 
       ? '?' + new URLSearchParams(params).toString() 
@@ -50,16 +50,7 @@ class OKXClient {
         url: this.baseUrl + path,  // path已包含query string
         headers,
         data: method !== 'GET' ? params : undefined,
-        timeout: 60000,  // 60秒超时
-        // 如果需要代理，可以在这里配置
-        // proxy: {
-        //   host: 'your-proxy-host',
-        //   port: your-proxy-port,
-        //   auth: {
-        //     username: 'your-username',
-        //     password: 'your-password'
-        //   }
-        // }
+        timeout: 30000  // 30秒超时
       });
 
       if (response.data.code !== '0') {
@@ -88,48 +79,12 @@ class OKXClient {
         throw new Error(errorMsg);
       }
       
-      // 网络错误重试机制
-      if ((error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') && retryCount < 2) {
-        logger.warn(`⚠️ OKX API 网络错误，重试中... (${retryCount + 1}/3)`, { 
-          endpoint, 
-          method, 
-          params,
-          error: error.message,
-          code: error.code
-        });
-        
-        // 等待2秒后重试
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        return this.request(method, endpoint, params, retryCount + 1);
-      }
-      
-      if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-        logger.error(`❌ OKX API 请求超时`, { 
-          endpoint, 
-          method, 
-          params,
-          timeout: '30s',
-          retryCount
-        });
-        throw new Error(`OKX API 请求超时: ${endpoint}`);
-      } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-        logger.error(`❌ OKX API 网络连接失败`, { 
-          endpoint, 
-          method, 
-          params,
-          error: error.message,
-          code: error.code
-        });
-        throw new Error(`OKX API 网络连接失败: ${error.message}`);
-      } else {
-        logger.error(`❌ OKX API 请求失败: ${error.message}`, { 
-          endpoint, 
-          method, 
-          params,
-          code: error.code
-        });
-        throw error;
-      }
+      logger.error(`OKX API 请求失败: ${error.message}`, { 
+        endpoint, 
+        method, 
+        params
+      });
+      throw error;
     }
   }
 
