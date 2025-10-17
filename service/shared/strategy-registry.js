@@ -75,13 +75,13 @@ class StrategyRegistry {
    * 获取策略状态
    * @returns {Array}
    */
-  getStrategiesStatus() {
+  async getStrategiesStatus() {
     const status = [];
     for (const [name, strategy] of this.strategies) {
       if (strategy.getStatus) {
         status.push({
           name,
-          ...strategy.getStatus()
+          ...(await strategy.getStatus())
         });
       }
     }

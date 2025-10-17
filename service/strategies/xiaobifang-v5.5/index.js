@@ -25,6 +25,73 @@ class XiaoBiFangStrategy {
   }
 
   /**
+   * 获取活跃持仓数量
+   */
+  async getActivePositionsCount() {
+    try {
+      const positions = await this.okx.getPositions();
+      return positions.filter(pos => parseFloat(pos.pos) !== 0).length;
+    } catch (error) {
+      logger.error(`获取持仓数量失败: ${error.message}`);
+      return 0;
+    }
+  }
+
+  /**
+   * 获取活跃持仓列表
+   */
+  async getActivePositions() {
+    try {
+      const positions = await this.okx.getPositions();
+      return positions.filter(pos => parseFloat(pos.pos) !== 0);
+    } catch (error) {
+      logger.error(`获取活跃持仓失败: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * 获取特定币种的持仓
+   */
+  async getPosition(symbol) {
+    try {
+      return await this.okx.getPosition(symbol);
+    } catch (error) {
+      logger.error(`获取 ${symbol} 持仓失败: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * 获取策略统计信息
+   */
+  async getStats() {
+    try {
+      const positions = await this.getActivePositions();
+      const balance = await this.okx.getAccountBalance();
+      
+      return {
+        activePositions: positions.length,
+        totalEquity: parseFloat(balance.totalEq),
+        positions: positions.map(pos => ({
+          symbol: pos.instId,
+          side: pos.posSide,
+          size: pos.pos,
+          margin: pos.margin,
+          unrealizedPnl: pos.upl
+        }))
+      };
+    } catch (error) {
+      logger.error(`获取统计信息失败: ${error.message}`);
+      return {
+        activePositions: 0,
+        totalEquity: 0,
+        positions: []
+      };
+    }
+  }
+
+  /**
    * 启动策略
    */
   async start() {
@@ -278,13 +345,11 @@ class XiaoBiFangStrategy {
         signal: { action: 'open', amount, side },
         timestamp: new Date().toISOString(),
         positionInfo: {
-          activePositions: this.positionManager.getActivePositionsCount(),
-          positions: Object.entries(this.positionManager.positions)
-            .filter(([_, pos]) => pos.status === 'active')
-            .map(([sym, pos]) => ({
-              symbol: sym,
-              side: pos.side,
-              quantity: pos.quantity,
+          activePositions: await this.getActivePositionsCount(),
+          positions: (await this.getActivePositions()).map(pos => ({
+              symbol: pos.instId,
+              side: pos.posSide,
+              quantity: pos.pos,
               entryPrice: pos.entryPrice,
               currentPrice: currentPrice
             }))
@@ -328,7 +393,7 @@ class XiaoBiFangStrategy {
       const balance = await this.okx.getAccountBalance();
       const equity = parseFloat(balance.totalEq);
       
-      const position = this.positionManager.getPosition(symbol);
+      const position = await this.getPosition(symbol);
       const totalMargin = (position?.margin || 0) + margin;
       const marginPct = (totalMargin / equity) * 100;
 
@@ -389,13 +454,11 @@ class XiaoBiFangStrategy {
         marketRegime: marketRegime,
         timestamp: new Date().toISOString(),
         positionInfo: {
-          activePositions: this.positionManager.getActivePositionsCount(),
-          positions: Object.entries(this.positionManager.positions)
-            .filter(([_, pos]) => pos.status === 'active')
-            .map(([sym, pos]) => ({
-              symbol: sym,
-              side: pos.side,
-              quantity: pos.quantity,
+          activePositions: await this.getActivePositionsCount(),
+          positions: (await this.getActivePositions()).map(pos => ({
+              symbol: pos.instId,
+              side: pos.posSide,
+              quantity: pos.pos,
               entryPrice: pos.entryPrice,
               currentPrice: currentPrice
             }))
@@ -480,7 +543,7 @@ class XiaoBiFangStrategy {
   /**
    * 获取策略状态
    */
-  getStatus() {
+  async getStatus() {
     return {
       config: {
         name: this.config.name,
@@ -488,8 +551,8 @@ class XiaoBiFangStrategy {
         maxPositions: this.config.position.maxConcurrentPositions,
         singleMarginPct: this.config.position.singleSymbolMaxMarginPct
       },
-      stats: this.positionManager.getStats(),
-      positions: this.positionManager.getActivePositions()
+      stats: await this.getStats(),
+      positions: await this.getActivePositions()
     };
   }
 }

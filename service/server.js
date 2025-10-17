@@ -17,13 +17,22 @@ const strategyRegistry = new StrategyRegistry();
 /**
  * 健康检查
  */
-app.get('/health', (req, res) => {
-  const status = {
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    strategies: strategyRegistry.getStrategiesStatus()
-  };
-  res.json(status);
+app.get('/health', async (req, res) => {
+  try {
+    const status = {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      strategies: await strategyRegistry.getStrategiesStatus()
+    };
+    res.json(status);
+  } catch (error) {
+    logger.error(`Health check failed: ${error.message}`);
+    res.status(500).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 /**
